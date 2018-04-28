@@ -158,26 +158,33 @@ def discriminator(images, reuse=False):
     :return: Tuple of (tensor output of the discriminator, tensor logits of the discriminator)
     """
     # TODO: Implement Function
-    alpha = 0.25
+    alpha = 0.2
+    dropout = 0.5
     with tf.variable_scope('discriminator', reuse=reuse): 
         # 28x28x3
-        x = tf.layers.conv2d(images, 64, 5, strides=2, padding='same')
+        # Xavier可以加快模型收敛,有可能使模型收敛到更低的loss
+        initializer=tf.contrib.layers.xavier_initializer()
+        x = tf.layers.conv2d(images, 64, 5, strides=2, padding='same', kernel_initializer=initializer)
         x = tf.maximum(alpha * x, x)
+        x = tf.nn.dropout(x, dropout)
         # 14x14x64
         
-        x = tf.layers.conv2d(x, 128, 5, strides=2, padding='same')
+        x = tf.layers.conv2d(x, 128, 5, strides=2, padding='same', kernel_initializer=initializer)
         x = tf.layers.batch_normalization(x, training=True)
         x = tf.maximum(alpha * x, x)
+        x = tf.nn.dropout(x, dropout)
         # 7x7x128
         
-        x = tf.layers.conv2d(x, 256, 5, strides=2, padding='same')
+        x = tf.layers.conv2d(x, 256, 5, strides=2, padding='same', kernel_initializer=initializer)
         x = tf.layers.batch_normalization(x, training=True)
         x = tf.maximum(alpha * x, x)
+        x = tf.nn.dropout(x, dropout)
         # 4x4x256
 
-        x = tf.layers.conv2d(x, 512, 5, strides=1, padding='same')
+        x = tf.layers.conv2d(x, 512, 5, strides=1, padding='same', kernel_initializer=initializer)
         x = tf.layers.batch_normalization(x, training=True)
         x = tf.maximum(alpha * x, x)
+        x = tf.nn.dropout(x, dropout)
         # 4x4x512
         
         x = tf.reshape(x, (-1, 4*4*512))
@@ -217,6 +224,7 @@ def generator(z, out_channel_dim, is_train=True):
         x = tf.reshape(x, (-1, 7, 7, 256))
         x = tf.layers.batch_normalization(x, training=is_train)
         x = tf.maximum(alpha * x, x)
+        x = tf.nn.dropout(x, 0.4)
         # 7x7x256
         
         x = tf.layers.conv2d_transpose(x, 128, 5, strides=2, padding='same')
@@ -400,12 +408,12 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
                 # TODO: Train Model
                 steps += 1
                 batch_z = np.random.uniform(-1, 1, size=(batch_size, z_dim))
-                
+                batch_images = batch_images*2
                 # Run optimizers
                 _ = sess.run(d_opt, feed_dict={input_real: batch_images, input_z: batch_z})
                 _ = sess.run(g_opt, feed_dict={input_z: batch_z, input_real: batch_images})
 
-                if steps % 20 == 0:
+                if steps % 50 == 0:
                     train_loss_d = d_loss.eval({input_z: batch_z, input_real: batch_images})
                     train_loss_g = g_loss.eval({input_z: batch_z})
         
@@ -424,7 +432,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
 # ### MNIST
 # 在 MNIST 上测试你的 GANs 模型。经过 2 次迭代，GANs 应该能够生成类似手写数字的图像。确保生成器 (generator) 低于辨别器 (discriminator) 的损失，或接近 0。
 
-# In[12]:
+# In[3]:
 
 
 batch_size = 32
@@ -448,19 +456,19 @@ with tf.Graph().as_default():
 # ### CelebA
 # 在 CelebA 上运行你的 GANs 模型。在一般的GPU上运行每次迭代大约需要 20 分钟。你可以运行整个迭代，或者当 GANs 开始产生真实人脸图像时停止它。
 
-# In[ ]:
+# In[12]:
 
 
 batch_size = 32
 z_dim = 100
-learning_rate = 0.0002
-beta1 = 0.6
+learning_rate = 0.001
+beta1 = 0.5
 
 
 """
 DON'T MODIFY ANYTHING IN THIS CELL THAT IS BELOW THIS LINE
 """
-epochs = 10
+epochs = 3
 
 celeba_dataset = helper.Dataset('celeba', glob(os.path.join(data_dir, 'img_align_celeba/*.jpg')))
 with tf.Graph().as_default():
@@ -468,7 +476,7 @@ with tf.Graph().as_default():
                    celeba_dataset.shape, celeba_dataset.image_mode)
 
 
-# In[18]:
+# In[13]:
 
 
 import matplotlib.pyplot as plt
